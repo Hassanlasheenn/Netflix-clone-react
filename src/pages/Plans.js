@@ -1,5 +1,4 @@
-import { collection, getDocs, where, query, addDoc } from 'firebase/firestore/lite';
-import { onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, where, query, addDoc, onSnapshot } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { selectUser } from '../features/userSlice';
@@ -13,33 +12,35 @@ const Plans = () => {
     const user = useSelector(selectUser);
     
     useEffect(() => {
-        getDocs(query(collection(db, 'products'), where('active', "==", true)))
-        .then((querySnapshot) => {
-            const products = {}
-            querySnapshot.forEach(async (productDoc) => {
-                products[productDoc.id] = productDoc.data();
-                const priceSnap = await getDocs(query(collection(db, `products/${productDoc.id}/prices`)));
-                priceSnap.docs.forEach((price) => {
-                    products[productDoc.id].prices = {
-                        priceId: price.id,
-                        ...price.data(),
-                    };
+        if(collection) {
+            getDocs(query(collection(db, 'products'), where('active', "==", true)))
+            .then((querySnapshot) => {
+                const products = {}
+                querySnapshot.forEach(async (productDoc) => {
+                    products[productDoc.id] = productDoc.data();
+                    const priceSnap = await getDocs(query(collection(db, `products/${productDoc.id}/prices`)));
+                    priceSnap.docs.forEach((price) => {
+                        products[productDoc.id].prices = {
+                            priceId: price.id,
+                            ...price.data(),
+                        };
+                    });
+                    setProducts(products);
                 });
-                setProducts(products);
+                return querySnapshot;
             });
-        });
+        }
     }, []);
 
-
+    
     const loadCheckout = async (priceId) => {
         const firstQ = collection(db, `customers/${user.uid}/checkout_sessions`);
-        const secondQ = query(
-            addDoc(firstQ, {
+        const secondQ = await addDoc(firstQ, {
                 price: priceId,
                 success_url: window.location.origin,
                 cancel_url: window.location.origin,
             })
-        );
+            
         onSnapshot(secondQ, async (snap) => {
             const { error, sessionId } = snap.data();
             if(error) {
@@ -54,7 +55,7 @@ const Plans = () => {
                 stripe.redirectToCheckout({ sessionId });
             }
         });
-    };
+    }
 
   return (
     <div className='plans'>
